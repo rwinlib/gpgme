@@ -1,23 +1,24 @@
 /* assuan.h - Definitions for the Assuan IPC library             -*- c -*-
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
-   Copyright (C) 2001-2015 g10 Code GmbH
-
-   This file is part of Assuan.
-
-   Assuan is free software; you can redistribute it and/or modify it
-   under the terms of the GNU Lesser General Public License as
-   published by the Free Software Foundation; either version 2.1 of
-   the License, or (at your option) any later version.
-
-   Assuan is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Lesser General Public License for more details.
-
-   You should have received a copy of the GNU Lesser General Public
-   License along with this program; if not, see <http://www.gnu.org/licenses/>.
-
-   Do not edit.  Generated from assuan.h.in by mkheader for mingw32.
+ * Copyright (C) 2001-2013 Free Software Foundation, Inc.
+ * Copyright (C) 2001-2017 g10 Code GmbH
+ *
+ * This file is part of Assuan.
+ *
+ * Assuan is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * Assuan is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * SPDX-License-Identifier: LGPL-2.1+
+ *
+ * Do not edit.  Generated from assuan.h.in by mkheader for mingw32.
  */
 
 #ifndef ASSUAN_H
@@ -30,7 +31,7 @@
 
 #ifndef _ASSUAN_NO_SOCKET_WRAPPER
 #include <winsock2.h>
-#include <ws2tcpip.h> 
+#include <ws2tcpip.h>
 #endif /*!_ASSUAN_NO_SOCKET_WRAPPER*/
 
 typedef void *assuan_msghdr_t;
@@ -61,11 +62,11 @@ extern "C"
 /* The version of this header should match the one of the library.  Do
    not use this symbol in your application; use assuan_check_version
    instead.  */
-#define ASSUAN_VERSION "2.4.3"
+#define ASSUAN_VERSION "2.5.2-unknown"
 
 /* The version number of this header.  It may be used to handle minor
    API incompatibilities.  */
-#define ASSUAN_VERSION_NUMBER 0x020403
+#define ASSUAN_VERSION_NUMBER 0x020502
 
 
 /* Check for compiler features.  */
@@ -433,8 +434,8 @@ pid_t assuan_get_pid (assuan_context_t ctx);
 struct _assuan_peercred
 {
 #ifdef _WIN32
-  /* Empty struct not allowed on some compilers.  */
-  unsigned int _dummy;
+  /* Empty struct not allowed on some compilers, so, put this (not valid).  */
+  pid_t pid;
 #else
   pid_t pid;
   uid_t uid;
@@ -541,14 +542,19 @@ int assuan_sock_set_sockaddr_un (const char *fname, struct sockaddr *addr,
 int assuan_sock_get_nonce (struct sockaddr *addr, int addrlen,
                            assuan_sock_nonce_t *nonce);
 int assuan_sock_check_nonce (assuan_fd_t fd, assuan_sock_nonce_t *nonce);
+void assuan_sock_set_system_hooks (assuan_system_hooks_t system_hooks);
 
 
-/* Set the default or per context system callbacks.  This is
-   irreversible.  */
+/* Set the default system callbacks.  This is irreversible.  */
 void assuan_set_system_hooks (assuan_system_hooks_t system_hooks);
 
+/* Set the per context system callbacks.  This is irreversible.  */
 void assuan_ctx_set_system_hooks (assuan_context_t ctx,
 				  assuan_system_hooks_t system_hooks);
+
+/* Change the system hooks for the socket interface.
+ * This is not thread-safe.  */
+void assuan_sock_set_system_hooks (assuan_system_hooks_t system_hooks);
 
 void __assuan_usleep (assuan_context_t ctx, unsigned int usec);
 int __assuan_pipe (assuan_context_t ctx, assuan_fd_t fd[2], int inherit_idx);
@@ -610,7 +616,9 @@ extern struct assuan_system_hooks _assuan_system_pth;
 
 #define ASSUAN_SYSTEM_NPTH_IMPL						\
   static void _assuan_npth_usleep (assuan_context_t ctx, unsigned int usec) \
-  { (void) ctx; npth_usleep (usec); }					\
+  { npth_unprotect();				                        \
+    __assuan_usleep (ctx, usec);					\
+    npth_protect(); }							\
   static ssize_t _assuan_npth_read (assuan_context_t ctx, assuan_fd_t fd, \
 				    void *buffer, size_t size)		\
   { ssize_t res; (void) ctx; npth_unprotect();				\
@@ -636,15 +644,19 @@ extern struct assuan_system_hooks _assuan_system_pth;
   { pid_t res; (void) ctx; npth_unprotect();				\
     res = __assuan_waitpid (ctx, pid, nowait, status, options);		\
     npth_protect(); return res; }					\
-  static int _assuan_npth_connect (assuan_context_t ctx, int sock,      \
-                                   struct sockaddr *addr, socklen_t len)\
-  { int res; npth_unprotect();                                          \
-    res = __assuan_connect (ctx, sock, addr, len);                      \
-    npth_protect(); return res; }                                       \
+  static int _assuan_npth_connect (assuan_context_t ctx, int sock,	\
+				   struct sockaddr *addr, socklen_t len)\
+  { int res; npth_unprotect();						\
+    res = __assuan_connect (ctx, sock, addr, len);			\
+    npth_protect(); return res; }					\
+  static int _assuan_npth_close (assuan_context_t ctx, assuan_fd_t fd)	\
+  { int res; npth_unprotect();						\
+    res = __assuan_close (ctx, fd);					\
+    npth_protect(); return res; }					\
 									\
   struct assuan_system_hooks _assuan_system_npth =			\
     { ASSUAN_SYSTEM_HOOKS_VERSION, _assuan_npth_usleep, __assuan_pipe,	\
-      __assuan_close, _assuan_npth_read, _assuan_npth_write,		\
+      _assuan_npth_close, _assuan_npth_read, _assuan_npth_write,	\
       _assuan_npth_recvmsg, _assuan_npth_sendmsg,			\
       __assuan_spawn, _assuan_npth_waitpid, __assuan_socketpair,	\
       __assuan_socket, _assuan_npth_connect }
