@@ -2,9 +2,11 @@
 
 Libraries built with GCC-8 (rtools40):
 
-  - `mingw-w64-gpgme` 1.12.0
+  - `mingw-w64-gpgme` 1.11.1
   - `mingw-w64-libassuan` 2.5.2
   - `mingw-w64-libgpg-error` 1.33-1
+  
+Note that gpgme 1.12.0 has a weird bug that causes crashes on win64.
 
 The `./bin` executables are taken from the windows installers from the GPG download site.
 

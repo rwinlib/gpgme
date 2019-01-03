@@ -42,11 +42,11 @@ extern "C" {
  * instead.  The purpose of this macro is to let autoconf (using the
  * AM_PATH_GPGME macro) check that this header matches the installed
  * library.  */
-#define GPGME_VERSION "1.12.0"
+#define GPGME_VERSION "1.11.1"
 
 /* The version number of this header.  It may be used to handle minor
  * API incompatibilities.  */
-#define GPGME_VERSION_NUMBER 0x010c00
+#define GPGME_VERSION_NUMBER 0x010b01
 
 
 /* System specific typedefs.  */
@@ -101,12 +101,6 @@ extern "C" {
 #define _GPGME_DEPRECATED_OUTSIDE_GPGME(a,b)
 #else
 #define _GPGME_DEPRECATED_OUTSIDE_GPGME(a,b) _GPGME_DEPRECATED(a,b)
-#endif
-
-/* We used to use some symbols which clash with keywords in some
- * languages.  This macro is used to obsolete them.  */
-#if defined(__cplusplus) || defined(SWIGPYTHON)
-# define _GPGME_OBSOLETE_SOME_SYMBOLS 1
 #endif
 
 
@@ -413,15 +407,12 @@ gpgme_pinentry_mode_t;
 #define GPGME_EXPORT_MODE_SECRET               16
 #define GPGME_EXPORT_MODE_RAW                  32
 #define GPGME_EXPORT_MODE_PKCS12               64
-#define GPGME_EXPORT_MODE_NOUID               128  /* Experimental(!)*/
 
 typedef unsigned int gpgme_export_mode_t;
 
 
 /* Flags for the audit log functions.  */
-#define GPGME_AUDITLOG_DEFAULT   0
 #define GPGME_AUDITLOG_HTML      1
-#define GPGME_AUDITLOG_DIAG      2
 #define GPGME_AUDITLOG_WITH_HELP 128
 
 
@@ -655,7 +646,7 @@ struct _gpgme_key_sig
   gpgme_error_t status;
 
   /* Deprecated; use SIG_CLASS instead.  */
-#ifdef _GPGME_OBSOLETE_SOME_SYMBOLS
+#ifdef __cplusplus
   unsigned int _obsolete_class _GPGME_DEPRECATED(0,4);
 #else
   unsigned int class _GPGME_DEPRECATED_OUTSIDE_GPGME(0,4);
@@ -1195,8 +1186,6 @@ gpgme_error_t gpgme_data_new_from_cbs (gpgme_data_t *dh,
 gpgme_error_t gpgme_data_new_from_fd (gpgme_data_t *dh, int fd);
 
 gpgme_error_t gpgme_data_new_from_stream (gpgme_data_t *dh, FILE *stream);
-gpgme_error_t gpgme_data_new_from_estream (gpgme_data_t *r_dh,
-                                           gpgrt_stream_t stream);
 
 /* Return the encoding attribute of the data buffer DH */
 gpgme_data_encoding_t gpgme_data_get_encoding (gpgme_data_t dh);
@@ -1384,12 +1373,8 @@ struct _gpgme_op_decrypt_result
   /* The message claims that the content is a MIME object.  */
   unsigned int is_mime : 1;
 
-  /* The message was made by a legacy algorithm without any integrity
-   * protection.  This might be an old but legitimate message. */
-  unsigned int legacy_cipher_nomdc : 1;
-
   /* Internal to GPGME, do not use.  */
-  int _unused : 28;
+  int _unused : 29;
 
   gpgme_recipient_t recipients;
 
@@ -1481,7 +1466,7 @@ struct _gpgme_new_signature
   char *fpr;
 
   /* Deprecated; use SIG_CLASS instead.  */
-#ifdef _GPGME_OBSOLETE_SOME_SYMBOLS
+#ifdef __cplusplus
   unsigned int _obsolete_class_2;
 #else
   unsigned int class _GPGME_DEPRECATED_OUTSIDE_GPGME(0,4);
@@ -1606,12 +1591,11 @@ struct _gpgme_op_verify_result
 {
   gpgme_signature_t signatures;
 
-  /* The original file name of the plaintext message, if available.
-   * Warning: This information is not covered by the signature.  */
+  /* The original file name of the plaintext message, if
+     available.  */
   char *file_name;
 
   /* The message claims that the content is a MIME object.  */
-  /* Warning: This flag is not covered by the signature.  */
   unsigned int is_mime : 1;
 
   /* Internal to GPGME; do not use.  */
