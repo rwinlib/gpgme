@@ -1,6 +1,6 @@
 /* assuan.h - Definitions for the Assuan IPC library             -*- c -*-
  * Copyright (C) 2001-2013 Free Software Foundation, Inc.
- * Copyright (C) 2001-2017 g10 Code GmbH
+ * Copyright (C) 2001-2021 g10 Code GmbH
  *
  * This file is part of Assuan.
  *
@@ -16,9 +16,16 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with this program; if not, see <http://www.gnu.org/licenses/>.
- * SPDX-License-Identifier: LGPL-2.1+
+ * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * Do not edit.  Generated from assuan.h.in by mkheader for mingw32.
+ */
+
+/* Compile time configuration:
+ *
+ * #define _ASSUAN_NO_SOCKET_WRAPPER
+ *
+ * Do not include the definitions for the socket wrapper feature.
  */
 
 #ifndef ASSUAN_H
@@ -44,13 +51,6 @@ typedef void *assuan_msghdr_t;
 
 #include <gpg-error.h>
 
-/* Compile time configuration:
-
-   #define _ASSUAN_NO_SOCKET_WRAPPER
-
-   Do not include the definitions for the socket wrapper feature.  */
-
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -60,13 +60,13 @@ extern "C"
 #endif
 
 /* The version of this header should match the one of the library.  Do
-   not use this symbol in your application; use assuan_check_version
-   instead.  */
-#define ASSUAN_VERSION "2.5.2-unknown"
+ * not use this symbol in your application; use assuan_check_version
+ * instead.  */
+#define ASSUAN_VERSION "2.5.5-unknown"
 
 /* The version number of this header.  It may be used to handle minor
-   API incompatibilities.  */
-#define ASSUAN_VERSION_NUMBER 0x020502
+ * API incompatibilities.  */
+#define ASSUAN_VERSION_NUMBER 0x020505
 
 
 /* Check for compiler features.  */
@@ -96,6 +96,10 @@ typedef struct assuan_context_s *assuan_context_t;
 typedef void *assuan_fd_t;
 #define ASSUAN_INVALID_FD ((void*)(-1))
 #define ASSUAN_INVALID_PID ((pid_t) -1)
+#if GPGRT_HAVE_PRAGMA_GCC_PUSH
+# pragma GCC push_options
+# pragma GCC diagnostic ignored "-Wbad-function-cast"
+#endif
 static GPG_ERR_INLINE assuan_fd_t
 assuan_fd_from_posix_fd (int fd)
 {
@@ -104,6 +108,9 @@ assuan_fd_from_posix_fd (int fd)
   else
     return (assuan_fd_t) _get_osfhandle (fd);
 }
+#if GPGRT_HAVE_PRAGMA_GCC_PUSH
+# pragma GCC pop_options
+#endif
 
 
 assuan_fd_t assuan_fdopen (int fd);
@@ -140,7 +147,9 @@ struct sockaddr_un
 
 
 
-/* Global interface.  */
+/*
+ * Global interface.
+ */
 
 struct assuan_malloc_hooks
 {
@@ -159,8 +168,8 @@ typedef struct assuan_malloc_hooks *assuan_malloc_hooks_t;
 #define ASSUAN_LOG_CONTROL 8
 
 /* If MSG is NULL, return true/false depending on if this category is
-   logged.  This is used to probe before expensive log message
-   generation (buffer dumps).  */
+ * logged.  This is used to probe before expensive log message
+ * generation (buffer dumps).  */
 typedef int (*assuan_log_cb_t) (assuan_context_t ctx, void *hook,
 				unsigned int cat, const char *msg);
 
@@ -189,7 +198,7 @@ void assuan_get_log_cb (assuan_log_cb_t *log_cb, void **log_cb_data);
 
 
 /* Create a new Assuan context.  The initial parameters are all needed
-   in the creation of the context.  */
+ * in the creation of the context.  */
 gpg_error_t assuan_new_ext (assuan_context_t *ctx, gpg_err_source_t errsource,
 			    assuan_malloc_hooks_t malloc_hooks,
 			    assuan_log_cb_t log_cb, void *log_cb_data);
@@ -201,7 +210,7 @@ gpg_error_t assuan_new (assuan_context_t *ctx);
 void assuan_release (assuan_context_t ctx);
 
 /* Release the memory at PTR using the allocation handler of the
-   context CTX.  This is a convenience function.  */
+ * context CTX.  This is a convenience function.  */
 void assuan_free (assuan_context_t ctx, void *ptr);
 
 
@@ -216,32 +225,37 @@ void *assuan_get_pointer (assuan_context_t ctx);
 typedef unsigned int assuan_flag_t;
 
 /* When using a pipe server, by default Assuan will wait for the
-   forked process to die in assuan_release.  In certain cases this
-   is not desirable.  By setting this flag, the waitpid will be
-   skipped and the caller is responsible to cleanup a forked
-   process. */
+ * forked process to die in assuan_release.  In certain cases this
+ * is not desirable.  By setting this flag, the waitpid will be
+ * skipped and the caller is responsible to cleanup a forked
+ * process. */
 #define ASSUAN_NO_WAITPID 1
+
 /* This flag indicates whether Assuan logging is in confidential mode.
    You can use assuan_{begin,end}_condidential to change the mode.  */
 #define ASSUAN_CONFIDENTIAL 2
+
 /* This flag suppresses fix up of signal handlers for pipes.  */
 #define ASSUAN_NO_FIXSIGNALS 3
+
 /* This flag changes assuan_transact to return comment lines via the
-   status callback.  The default is to skip comment lines.  */
+ * status callback.  The default is to skip comment lines.  */
 #define ASSUAN_CONVEY_COMMENTS 4
+
 /* This flag disables logging for one context.  */
 #define ASSUAN_NO_LOGGING 5
+
 /* This flag forces a connection close.  */
 #define ASSUAN_FORCE_CLOSE 6
 
+
 /* For context CTX, set the flag FLAG to VALUE.  Values for flags
-   are usually 1 or 0 but certain flags might allow for other values;
-   see the description of the type assuan_flag_t for details.  */
+ * are usually 1 or 0 but certain flags might allow for other values;
+ * see the description of the type assuan_flag_t for details.  */
 void assuan_set_flag (assuan_context_t ctx, assuan_flag_t flag, int value);
 
 /* Return the VALUE of FLAG in context CTX.  */
 int assuan_get_flag (assuan_context_t ctx, assuan_flag_t flag);
-
 
 /* Same as assuan_set_flag (ctx, ASSUAN_CONFIDENTIAL, 1).  */
 void assuan_begin_confidential (assuan_context_t ctx);
@@ -259,7 +273,7 @@ void assuan_end_confidential (assuan_context_t ctx);
 #define ASSUAN_IO_MONITOR_IGNORE 2
 
 /* The IO monitor gets to see all I/O on the context, and can return
-   ASSUAN_IO_MONITOR_* bits to control actions on it.  */
+ * ASSUAN_IO_MONITOR_* bits to control actions on it.  */
 typedef unsigned int (*assuan_io_monitor_t) (assuan_context_t ctx, void *hook,
 					     int inout, const char *line,
 					     size_t linelen);
@@ -268,7 +282,7 @@ typedef unsigned int (*assuan_io_monitor_t) (assuan_context_t ctx, void *hook,
 void assuan_set_io_monitor (assuan_context_t ctx,
 			    assuan_io_monitor_t io_monitor, void *hook_data);
 
-
+/* The system hooks.  See assuan_set_system_hooks et al. */
 #define ASSUAN_SYSTEM_HOOKS_VERSION 2
 #define ASSUAN_SPAWN_DETACHED 128
 struct assuan_system_hooks
@@ -317,18 +331,21 @@ struct assuan_system_hooks
 };
 typedef struct assuan_system_hooks *assuan_system_hooks_t;
 
+
 
-/* Configuration of the default log handler.  */
+/*
+ * Configuration of the default log handler.
+ */
 
 /* Set the prefix to be used at the start of a line emitted by assuan
-   on the log stream.  The default is the empty string.  Note, that
-   this function is not thread-safe and should in general be used
-   right at startup. */
+ * on the log stream.  The default is the empty string.  Note, that
+ * this function is not thread-safe and should in general be used
+ * right at startup. */
 void assuan_set_assuan_log_prefix (const char *text);
 
 /* Return a prefix to be used at the start of a line emitted by assuan
-   on the log stream.  The default implementation returns the empty
-   string, i.e. ""  */
+ * on the log stream.  The default implementation returns the empty
+ * string, i.e. "".  */
 const char *assuan_get_assuan_log_prefix (void);
 
 /* Global default log stream.  */
@@ -338,6 +355,7 @@ void assuan_set_assuan_log_stream (FILE *fp);
 void assuan_set_log_stream (assuan_context_t ctx, FILE *fp);
 
 
+/* The type for assuan command handlers.  */
 typedef gpg_error_t (*assuan_handler_t) (assuan_context_t, char *);
 
 /*-- assuan-handler.c --*/
@@ -346,7 +364,9 @@ gpg_error_t assuan_register_command (assuan_context_t ctx,
 				     assuan_handler_t handler,
                                      const char *help_string);
 gpg_error_t assuan_register_pre_cmd_notify (assuan_context_t ctx,
-					     gpg_error_t (*fnc)(assuan_context_t, const char *cmd));
+                                          gpg_error_t (*fnc)(assuan_context_t,
+                                                             const char *cmd));
+
 gpg_error_t assuan_register_post_cmd_notify (assuan_context_t ctx,
 					     void (*fnc)(assuan_context_t,
                                                          gpg_error_t));
@@ -380,10 +400,10 @@ gpg_error_t assuan_write_status (assuan_context_t ctx,
 				 const char *keyword, const char *text);
 
 /* Negotiate a file descriptor.  If LINE contains "FD=N", returns N
-   assuming a local file descriptor.  If LINE contains "FD" reads a
-   file descriptor via CTX and stores it in *RDF (the CTX must be
-   capable of passing file descriptors).  Under W32 the returned FD is
-   a libc-type one.  */
+ * assuming a local file descriptor.  If LINE contains "FD" reads a
+ * file descriptor via CTX and stores it in *RDF (the CTX must be
+ * capable of passing file descriptors).  Under Windows the returned
+ * FD is a libc-type one.  */
 gpg_error_t assuan_command_parse_fd (assuan_context_t ctx, char *line,
                                         assuan_fd_t *rfd);
 
@@ -449,7 +469,11 @@ gpg_error_t assuan_get_peercred (assuan_context_t ctx,
 
 
 
-/* Client interface.  */
+/*
+ * Client interface.
+ */
+
+/* Client response codes.  */
 #define ASSUAN_RESPONSE_ERROR 0
 #define ASSUAN_RESPONSE_OK 1
 #define ASSUAN_RESPONSE_DATA 2
@@ -500,8 +524,8 @@ gpg_error_t assuan_send_data (assuan_context_t ctx,
                               const void *buffer, size_t length);
 
 /* The file descriptor must be pending before assuan_receivefd is
-   called.  This means that assuan_sendfd should be called *before* the
-   trigger is sent (normally via assuan_write_line ("INPUT FD")).  */
+ * called.  This means that assuan_sendfd should be called *before* the
+ * trigger is sent (normally via assuan_write_line ("INPUT FD")).  */
 gpg_error_t assuan_sendfd (assuan_context_t ctx, assuan_fd_t fd);
 gpg_error_t assuan_receivefd (assuan_context_t ctx, assuan_fd_t *fd);
 
@@ -515,15 +539,16 @@ gpg_error_t assuan_set_error (assuan_context_t ctx, gpg_error_t err,
 /*-- assuan-socket.c --*/
 
 /* This flag is used with assuan_sock_connect_byname to
-   connect via SOCKS.  */
+ * connect via SOCKS.  */
 #define ASSUAN_SOCK_SOCKS   1
+
 /* This flag is used with assuan_sock_connect_byname to force a
    connection via Tor even if the socket subsystem has not been
    swicthed into Tor mode.  This flags overrides ASSUAN_SOCK_SOCKS. */
 #define ASSUAN_SOCK_TOR     2
 
 /* These are socket wrapper functions to support an emulation of Unix
-   domain sockets on Windows W32.  */
+ * domain sockets on Windows.  */
 gpg_error_t assuan_sock_init (void);
 void assuan_sock_deinit (void);
 int assuan_sock_close (assuan_fd_t fd);
@@ -574,7 +599,7 @@ int __assuan_recvmsg (assuan_context_t ctx, assuan_fd_t fd, assuan_msghdr_t msg,
 int __assuan_sendmsg (assuan_context_t ctx, assuan_fd_t fd, const assuan_msghdr_t msg, int flags);
 pid_t __assuan_waitpid (assuan_context_t ctx, pid_t pid, int nowait, int *status, int options);
 
-
+/* Standard system hooks for the legacy GNU Pth.  */
 #define ASSUAN_SYSTEM_PTH_IMPL						\
   static void _assuan_pth_usleep (assuan_context_t ctx, unsigned int usec) \
   { (void) ctx; pth_usleep (usec); }					\
@@ -614,6 +639,7 @@ pid_t __assuan_waitpid (assuan_context_t ctx, pid_t pid, int nowait, int *status
 extern struct assuan_system_hooks _assuan_system_pth;
 #define ASSUAN_SYSTEM_PTH &_assuan_system_pth
 
+/* Standard system hooks for nPth.  */
 #define ASSUAN_SYSTEM_NPTH_IMPL						\
   static void _assuan_npth_usleep (assuan_context_t ctx, unsigned int usec) \
   { npth_unprotect();				                        \

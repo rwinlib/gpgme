@@ -15,8 +15,8 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this program; if not, see <http://www.gnu.org/licenses/>.
- * SPDX-License-Identifier: LGPL-2.1+
+ * License along with this program; if not, see <https://gnu.org/licenses/>.
+ * SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * Generated from gpgme.h.in for x86_64-w64-mingw32.
  */
@@ -42,11 +42,11 @@ extern "C" {
  * instead.  The purpose of this macro is to let autoconf (using the
  * AM_PATH_GPGME macro) check that this header matches the installed
  * library.  */
-#define GPGME_VERSION "1.11.1"
+#define GPGME_VERSION "1.16.0-unknown"
 
 /* The version number of this header.  It may be used to handle minor
  * API incompatibilities.  */
-#define GPGME_VERSION_NUMBER 0x010b01
+#define GPGME_VERSION_NUMBER 0x011000
 
 
 /* System specific typedefs.  */
@@ -101,6 +101,12 @@ extern "C" {
 #define _GPGME_DEPRECATED_OUTSIDE_GPGME(a,b)
 #else
 #define _GPGME_DEPRECATED_OUTSIDE_GPGME(a,b) _GPGME_DEPRECATED(a,b)
+#endif
+
+/* We used to use some symbols which clash with keywords in some
+ * languages.  This macro is used to obsolete them.  */
+#if defined(__cplusplus) || defined(SWIGPYTHON)
+# define _GPGME_OBSOLETE_SOME_SYMBOLS 1
 #endif
 
 
@@ -315,7 +321,7 @@ typedef enum
 gpgme_sig_mode_t;
 
 
-/* The available validities for a trust item or key.  */
+/* The available validities for a key.  */
 typedef enum
   {
     GPGME_VALIDITY_UNKNOWN   = 0,
@@ -381,6 +387,7 @@ gpgme_protocol_t;
 #define GPGME_KEYLIST_MODE_SIG_NOTATIONS	8
 #define GPGME_KEYLIST_MODE_WITH_SECRET       	16
 #define GPGME_KEYLIST_MODE_WITH_TOFU       	32
+#define GPGME_KEYLIST_MODE_WITH_KEYGRIP       	64
 #define GPGME_KEYLIST_MODE_EPHEMERAL            128
 #define GPGME_KEYLIST_MODE_VALIDATE		256
 
@@ -407,12 +414,15 @@ gpgme_pinentry_mode_t;
 #define GPGME_EXPORT_MODE_SECRET               16
 #define GPGME_EXPORT_MODE_RAW                  32
 #define GPGME_EXPORT_MODE_PKCS12               64
+#define GPGME_EXPORT_MODE_SSH                 256
 
 typedef unsigned int gpgme_export_mode_t;
 
 
 /* Flags for the audit log functions.  */
+#define GPGME_AUDITLOG_DEFAULT   0
 #define GPGME_AUDITLOG_HTML      1
+#define GPGME_AUDITLOG_DIAG      2
 #define GPGME_AUDITLOG_WITH_HELP 128
 
 
@@ -599,7 +609,7 @@ struct _gpgme_subkey
   /* The name of the curve for ECC algorithms or NULL.  */
   char *curve;
 
-  /* The keygrip of the subkey in hex digit form or NULL if not availabale.  */
+  /* The keygrip of the subkey in hex digit form or NULL if not available.  */
   char *keygrip;
 };
 typedef struct _gpgme_subkey *gpgme_subkey_t;
@@ -625,7 +635,13 @@ struct _gpgme_key_sig
   unsigned int exportable : 1;
 
   /* Internal to GPGME, do not use.  */
-  unsigned int _unused : 28;
+  unsigned int _unused : 12;
+
+  /* The depth of a trust signature, 0 if no trust signature.  */
+  unsigned int trust_depth : 8;
+
+  /* The trust value of a trust signature, 0 if no trust signature.  */
+  unsigned int trust_value : 8;
 
   /* The public key algorithm used to create the signature.  */
   gpgme_pubkey_algo_t pubkey_algo;
@@ -646,7 +662,7 @@ struct _gpgme_key_sig
   gpgme_error_t status;
 
   /* Deprecated; use SIG_CLASS instead.  */
-#ifdef __cplusplus
+#ifdef _GPGME_OBSOLETE_SOME_SYMBOLS
   unsigned int _obsolete_class _GPGME_DEPRECATED(0,4);
 #else
   unsigned int class _GPGME_DEPRECATED_OUTSIDE_GPGME(0,4);
@@ -672,6 +688,9 @@ struct _gpgme_key_sig
 
   /* Internal to GPGME, do not use.  */
   gpgme_sig_notation_t _last_notation;
+
+  /* The scope of a trust signature.  Might be NULL.  */
+  char *trust_scope;
 };
 typedef struct _gpgme_key_sig *gpgme_key_sig_t;
 
@@ -727,6 +746,9 @@ struct _gpgme_user_id
 
   /* Time of the last refresh of this user id.  0 if unknown.  */
   unsigned long last_update;
+
+  /* The string to exactly identify a userid.  Might be NULL.  */
+  char *uidhash;
 };
 typedef struct _gpgme_user_id *gpgme_user_id_t;
 
@@ -1049,7 +1071,7 @@ typedef enum
     GPGME_EVENT_START,
     GPGME_EVENT_DONE,
     GPGME_EVENT_NEXT_KEY,
-    GPGME_EVENT_NEXT_TRUSTITEM
+    GPGME_EVENT_NEXT_TRUSTITEM  /* NOT USED.  */
   }
 gpgme_event_io_t;
 
@@ -1186,6 +1208,8 @@ gpgme_error_t gpgme_data_new_from_cbs (gpgme_data_t *dh,
 gpgme_error_t gpgme_data_new_from_fd (gpgme_data_t *dh, int fd);
 
 gpgme_error_t gpgme_data_new_from_stream (gpgme_data_t *dh, FILE *stream);
+gpgme_error_t gpgme_data_new_from_estream (gpgme_data_t *r_dh,
+                                           gpgrt_stream_t stream);
 
 /* Return the encoding attribute of the data buffer DH */
 gpgme_data_encoding_t gpgme_data_get_encoding (gpgme_data_t dh);
@@ -1373,8 +1397,12 @@ struct _gpgme_op_decrypt_result
   /* The message claims that the content is a MIME object.  */
   unsigned int is_mime : 1;
 
+  /* The message was made by a legacy algorithm without any integrity
+   * protection.  This might be an old but legitimate message. */
+  unsigned int legacy_cipher_nomdc : 1;
+
   /* Internal to GPGME, do not use.  */
-  int _unused : 29;
+  int _unused : 28;
 
   gpgme_recipient_t recipients;
 
@@ -1466,7 +1494,7 @@ struct _gpgme_new_signature
   char *fpr;
 
   /* Deprecated; use SIG_CLASS instead.  */
-#ifdef __cplusplus
+#ifdef _GPGME_OBSOLETE_SOME_SYMBOLS
   unsigned int _obsolete_class_2;
 #else
   unsigned int class _GPGME_DEPRECATED_OUTSIDE_GPGME(0,4);
@@ -1591,11 +1619,12 @@ struct _gpgme_op_verify_result
 {
   gpgme_signature_t signatures;
 
-  /* The original file name of the plaintext message, if
-     available.  */
+  /* The original file name of the plaintext message, if available.
+   * Warning: This information is not covered by the signature.  */
   char *file_name;
 
   /* The message claims that the content is a MIME object.  */
+  /* Warning: This flag is not covered by the signature.  */
   unsigned int is_mime : 1;
 
   /* Internal to GPGME; do not use.  */
@@ -1855,6 +1884,13 @@ gpgme_error_t gpgme_op_set_uid_flag       (gpgme_ctx_t ctx,
                                            gpgme_key_t key, const char *userid,
                                            const char *name, const char *value);
 
+/* Change the expiry of a key.  */
+gpgme_error_t gpgme_op_setexpire_start (gpgme_ctx_t ctx,
+                                        gpgme_key_t key, unsigned long expires,
+                                        const char *subfprs, unsigned int reserved);
+gpgme_error_t gpgme_op_setexpire       (gpgme_ctx_t ctx,
+                                        gpgme_key_t key, unsigned long expires,
+                                        const char *subfprs, unsigned int reserved);
 
 /* Retrieve a pointer to the result of a genkey, createkey, or
  * createsubkey operation.  */
@@ -1886,6 +1922,7 @@ gpgme_error_t gpgme_op_delete_ext (gpgme_ctx_t ctx, const gpgme_key_t key,
 #define GPGME_KEYSIGN_LOCAL     (1 << 7)  /* Create a local signature.  */
 #define GPGME_KEYSIGN_LFSEP     (1 << 8)  /* Indicate LF separated user ids. */
 #define GPGME_KEYSIGN_NOEXPIRE  (1 << 9)  /* Force no expiration.  */
+#define GPGME_KEYSIGN_FORCE     (1 << 10) /* Force creation.  */
 
 
 /* Sign the USERID of KEY using the current set of signers.  */
@@ -1899,6 +1936,20 @@ gpgme_error_t gpgme_op_keysign       (gpgme_ctx_t ctx,
                                       unsigned int flags);
 
 
+/* Flags for the signature revoking functions.  */
+#define GPGME_REVSIG_LFSEP   (1 << 8)  /* Indicate LF separated user ids. */
+
+/* Revoke the signatures made with SIGNING_KEY on the USERID(s) of KEY.  */
+gpgme_error_t gpgme_op_revsig_start (gpgme_ctx_t ctx,
+                                     gpgme_key_t key,
+                                     gpgme_key_t signing_key,
+                                     const char *userid,
+                                     unsigned int flags);
+gpgme_error_t gpgme_op_revsig       (gpgme_ctx_t ctx,
+                                     gpgme_key_t key,
+                                     gpgme_key_t signing_key,
+                                     const char *userid,
+                                     unsigned int flags);
 
 
 /*
@@ -1990,63 +2041,32 @@ gpgme_error_t gpgme_op_passwd (gpgme_ctx_t ctx, gpgme_key_t key,
 
 
 /*
- * Trust items and operations.
+ * Trust items and operations.  DO NOT USE.
+ * Note: This does not work because the experimental support in the
+ * GnuPG engine has been removed a very long time; for API and ABI
+ * compatibilty we keep the functions but let them return an error.
+ * See https://dev.gnupg.org/T4834
  */
-
-/* An object to hold data of a trust item.
- * This structure shall be considered read-only and an application
- * must not allocate such a structure on its own.  */
 struct _gpgme_trust_item
 {
-  /* Internal to GPGME, do not use.  */
   unsigned int _refs;
-
-  /* The key ID to which the trust item belongs.  */
   char *keyid;
-
-  /* Internal to GPGME, do not use.  */
   char _keyid[16 + 1];
-
-  /* The type of the trust item, 1 refers to a key, 2 to a user ID.  */
   int type;
-
-  /* The trust level.  */
   int level;
-
-  /* The owner trust if TYPE is 1.  */
   char *owner_trust;
-
-  /* Internal to GPGME, do not use.  */
   char _owner_trust[2];
-
-  /* The calculated validity.  */
   char *validity;
-
-  /* Internal to GPGME, do not use.  */
   char _validity[2];
-
-  /* The user name if TYPE is 2.  */
   char *name;
 };
 typedef struct _gpgme_trust_item *gpgme_trust_item_t;
-
-/* Start a trustlist operation within CTX, searching for trust items
-   which match PATTERN.  */
 gpgme_error_t gpgme_op_trustlist_start (gpgme_ctx_t ctx,
 					const char *pattern, int max_level);
-
-/* Return the next trust item from the trustlist in R_ITEM.  */
 gpgme_error_t gpgme_op_trustlist_next (gpgme_ctx_t ctx,
 				       gpgme_trust_item_t *r_item);
-
-/* Terminate a pending trustlist operation within CTX.  */
 gpgme_error_t gpgme_op_trustlist_end (gpgme_ctx_t ctx);
-
-/* Acquire a reference to ITEM.  */
 void gpgme_trust_item_ref (gpgme_trust_item_t item);
-
-/* Release a reference to ITEM.  If this was the last one the trust
- * item is destroyed.  */
 void gpgme_trust_item_unref (gpgme_trust_item_t item);
 
 
@@ -2460,6 +2480,11 @@ char *gpgme_addrspec_from_uid (const char *uid);
  * Deprecated types, constants and functions.
  */
 
+/* This is a former experimental only features.  The constant is
+ * provided to not break existing code in the compiler phase.  */
+#define GPGME_EXPORT_MODE_NOUID               128  /* Do not use! */
+
+
 /* The possible stati for gpgme_op_edit.  The use of that function and
  * these status codes are deprecated in favor of gpgme_op_interact. */
 typedef enum
@@ -2573,7 +2598,8 @@ typedef enum
     GPGME_STATUS_TOFU_STATS_LONG = 97,
     GPGME_STATUS_NOTATION_FLAGS = 98,
     GPGME_STATUS_DECRYPTION_COMPLIANCE_MODE = 99,
-    GPGME_STATUS_VERIFICATION_COMPLIANCE_MODE = 100
+    GPGME_STATUS_VERIFICATION_COMPLIANCE_MODE = 100,
+    GPGME_STATUS_CANCELED_BY_USER = 101
   }
 gpgme_status_code_t;
 
@@ -2728,22 +2754,16 @@ unsigned long gpgme_key_sig_get_ulong_attr (gpgme_key_t key, int uid_idx,
 gpgme_error_t gpgme_op_import_ext (gpgme_ctx_t ctx, gpgme_data_t keydata,
 				   int *nr) _GPGME_DEPRECATED(0,4);
 
-/* Release the trust item ITEM.  Deprecated, use
- * gpgme_trust_item_unref.  */
+/* DO NOT USE.  */
 void gpgme_trust_item_release (gpgme_trust_item_t item) _GPGME_DEPRECATED(0,4);
 
-/* Return the value of the attribute WHAT of ITEM, which has to be
- * representable by a string.  Deprecated, use trust item structure
- * directly.  */
+/* DO NOT USE.  */
 const char *gpgme_trust_item_get_string_attr (gpgme_trust_item_t item,
 					      _gpgme_attr_t what,
 					      const void *reserved, int idx)
      _GPGME_DEPRECATED(0,4);
 
-/* Return the value of the attribute WHAT of KEY, which has to be
- * representable by an integer.  IDX specifies a running index if the
- * attribute appears more than once in the key.  Deprecated, use trust
- * item structure directly.  */
+/* DO NOT USE.  */
 int gpgme_trust_item_get_int_attr (gpgme_trust_item_t item, _gpgme_attr_t what,
 				   const void *reserved, int idx)
      _GPGME_DEPRECATED(0,4);
